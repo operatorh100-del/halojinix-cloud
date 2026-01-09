@@ -624,50 +624,45 @@ class ScornSpine:  # RT9600: Renamed from MinimalSpine
 
         # RT31800: Use Qdrant Cloud if configured
         if self.use_qdrant and self.qdrant_client:
-            try:
-                from qdrant_client.models import PointStruct
-                import json as _json  # RT33800: For parsing _node_content
+            import json as _json  # RT33800: For parsing _node_content
+            
+            search_result = self.qdrant_client.search(
+                collection_name=self.collection,
+                query_vector=query_embedding.tolist(),
+                limit=top_k
+            )
+            results = []
+            for i, hit in enumerate(search_result):
+                # RT33800: Handle LlamaIndex payload format from Qdrant Cloud
+                # Payload has: filepath, _node_content (JSON with text field)
+                payload = hit.payload or {}
                 
-                search_result = self.qdrant_client.search(
-                    collection_name=self.collection,
-                    query_vector=query_embedding.tolist(),
-                    limit=top_k
-                )
-                results = []
-                for i, hit in enumerate(search_result):
-                    # RT33800: Handle LlamaIndex payload format from Qdrant Cloud
-                    # Payload has: filepath, _node_content (JSON with text field)
-                    payload = hit.payload or {}
-                    
-                    # Extract path - try multiple field names
-                    path = (payload.get('filepath') or 
-                            payload.get('path') or 
-                            payload.get('filename') or 
-                            'unknown')
-                    
-                    # Extract text - may be in _node_content JSON
-                    text = ''
-                    if '_node_content' in payload:
-                        try:
-                            node = _json.loads(payload['_node_content'])
-                            text = node.get('text', '')[:2000]
-                        except:
-                            text = str(payload.get('_node_content', ''))[:2000]
-                    else:
-                        text = payload.get('text', '')[:2000]
-                    
-                    results.append({
-                        'path': path,
-                        'text': text,
-                        'score': float(hit.score),
-                        'rank': i + 1,
-                        'idx': hit.id,
-                        'category': payload.get('category', 'unknown')
-                    })
-                return results
-            except Exception as e:
-                print(f"[ScornSpine] Qdrant query failed: {e}")
-                return []
+                # Extract path - try multiple field names
+                path = (payload.get('filepath') or 
+                        payload.get('path') or 
+                        payload.get('filename') or 
+                        'unknown')
+                
+                # Extract text - may be in _node_content JSON
+                text = ''
+                if '_node_content' in payload:
+                    try:
+                        node = _json.loads(payload['_node_content'])
+                        text = node.get('text', '')[:2000]
+                    except:
+                        text = str(payload.get('_node_content', ''))[:2000]
+                else:
+                    text = payload.get('text', '')[:2000]
+                
+                results.append({
+                    'path': path,
+                    'text': text,
+                    'score': float(hit.score),
+                    'rank': i + 1,
+                    'idx': hit.id,
+                    'category': payload.get('category', 'unknown')
+                })
+            return results
 
         # Local FAISS fallback
         if len(self.docs) == 0:

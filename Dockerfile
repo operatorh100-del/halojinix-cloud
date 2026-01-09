@@ -1,10 +1,11 @@
 # ScornSpine RunPod Serverless Dockerfile
 # RT31800: Cloud-native RAG deployment for A100 80GB
 # RT33800: Fixed payload parsing for LlamaIndex format from Qdrant Cloud
+# RT33900: Fixed indentation bug in query method
 #
 # Build: RunPod auto-builds from GitHub
 # GPU: A100 80GB ($0.00076/s scale-to-zero)
-# Build #12: 2026-01-09 14:45 - Fixed filepath/text extraction from _node_content
+# Build #13: 2026-01-09 14:55 - Fixed syntax error in spine.py
 #
 # Using slim base to reduce image size
 
