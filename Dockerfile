@@ -32,14 +32,14 @@ COPY requirements.txt .
 
 # Install dependencies in correct order:
 # 1. RunPod from PyPI (not on PyTorch index)
-RUN pip install --no-cache-dir runpod>=1.5.0
+RUN python3 -m pip install --no-cache-dir runpod>=1.5.0
 
 # 2. PyTorch with CUDA wheels (separate index)
-RUN pip install --no-cache-dir torch==2.2.0+cu121 \
+RUN python3 -m pip install --no-cache-dir torch==2.2.0+cu121 \
     --index-url https://download.pytorch.org/whl/cu121
 
 # 3. All other ML dependencies from PyPI
-RUN pip install --no-cache-dir \
+RUN python3 -m pip install --no-cache-dir \
     numpy>=1.26.0 \
     sentence-transformers>=2.7.0 \
     transformers>=4.38.0 \
@@ -83,11 +83,12 @@ RUN mkdir -p /app/scornspine /app/haloscorn/scornspine /app/haloscorn/latent_spa
     # Also symlink to haloscorn/scornspine for backward compat
     cp /app/scornspine/*.py /app/haloscorn/scornspine/
 
-# Pre-download embedding model (avoid cold start delay)
-RUN python3 -c "from sentence_transformers import SentenceTransformer; \
-    print('Downloading embedding model...'); \
-    SentenceTransformer('intfloat/multilingual-e5-base'); \
-    print('Model cached!')"
+# Pre-download embedding model (optional - will cold start on first use)
+# Uncomment once image builds successfully:
+# RUN python3 -c "from sentence_transformers import SentenceTransformer; \
+#     print('Downloading embedding model...'); \
+#     SentenceTransformer('intfloat/multilingual-e5-base'); \
+#     print('Model cached!')"
 
 # Expose for local testing (RunPod doesn't need this)
 EXPOSE 7782
