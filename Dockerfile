@@ -30,12 +30,16 @@ WORKDIR /app
 # Copy requirements first (Docker layer caching)
 COPY requirements.txt .
 
-# Install ML dependencies
-# Install torch with CUDA wheels (smaller than full PyTorch)
+# Install dependencies in correct order:
+# 1. RunPod from PyPI (not on PyTorch index)
+RUN pip install --no-cache-dir runpod>=1.5.0
+
+# 2. PyTorch with CUDA wheels (separate index)
+RUN pip install --no-cache-dir torch==2.2.0+cu121 \
+    --index-url https://download.pytorch.org/whl/cu121
+
+# 3. All other ML dependencies from PyPI
 RUN pip install --no-cache-dir \
-    runpod>=1.5.0 \
-    torch==2.2.0+cu121 --index-url https://download.pytorch.org/whl/cu121 && \
-    pip install --no-cache-dir \
     numpy>=1.26.0 \
     sentence-transformers>=2.7.0 \
     transformers>=4.38.0 \
