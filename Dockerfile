@@ -1,8 +1,10 @@
 # ScornSpine RunPod Serverless Dockerfile
 # RT31800: Cloud-native RAG deployment for A100 80GB
+# RT33800: Fixed payload parsing for LlamaIndex format from Qdrant Cloud
 #
 # Build: RunPod auto-builds from GitHub
 # GPU: A100 80GB ($0.00076/s scale-to-zero)
+# Build #12: 2026-01-09 14:45 - Fixed filepath/text extraction from _node_content
 #
 # Using slim base to reduce image size
 

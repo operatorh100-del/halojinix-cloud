@@ -60,17 +60,17 @@ SCORNSPINE_INDEX_TYPE = os.environ.get("SCORNSPINE_INDEX_TYPE", "flat").lower()
 def create_faiss_index(dimension: int, force_flat: bool = False) -> Any:
     """
     RT31210: Factory function for FAISS index creation.
-    
+
     - HNSW: O(log n) search, 10x faster on large indices, 95%+ recall
     - Flat: O(n) brute force, 100% recall, supports deletion
-    
+
     Set SCORNSPINE_INDEX_TYPE=hnsw for performance, =flat for compatibility.
     """
     if not FAISS_AVAILABLE:
         return None
-    
+
     use_hnsw = (SCORNSPINE_INDEX_TYPE == "hnsw") and not force_flat
-    
+
     if use_hnsw:
         # HNSW parameters: M=32 (connections per node), efConstruction=200 (build quality)
         index = faiss.IndexHNSWFlat(dimension, 32)
@@ -145,7 +145,7 @@ class ScornSpine:  # RT9600: Renamed from MinimalSpine
     """
     ScornSpine RAG engine. Local FAISS + GPU-accelerated embeddings.
     Clean, fast, reliable.
-    
+
     RT31800: Now supports Qdrant Cloud backend for serverless deployment.
     """
 
@@ -161,11 +161,11 @@ class ScornSpine:  # RT9600: Renamed from MinimalSpine
         self.model_name = model_name
         self.index_path = index_path or Path("/runpod-volume/index" if qdrant_url else "F:/primewave-engine/haloscorn/scornspine/index_minimal")
         self.collection = collection
-        
+
         # RT31800: Qdrant Cloud backend
         self.qdrant_client = None
         self.use_qdrant = bool(qdrant_url and qdrant_api_key)
-        
+
         if self.use_qdrant:
             try:
                 from qdrant_client import QdrantClient
@@ -176,7 +176,7 @@ class ScornSpine:  # RT9600: Renamed from MinimalSpine
             except Exception as e:
                 print(f"[ScornSpine] RT31800: Qdrant connection failed: {e}")
                 self.use_qdrant = False
-        
+
         if not self.use_qdrant:
             self.index_path.mkdir(parents=True, exist_ok=True)
 
@@ -621,11 +621,13 @@ class ScornSpine:  # RT9600: Renamed from MinimalSpine
         # Embed query - single encode call, minimal allocation
         # RT22700: PyTorch/CUDA memory is managed internally - no cleanup needed
         query_embedding = self.embedder.encode(question, convert_to_numpy=True)
-        
+
         # RT31800: Use Qdrant Cloud if configured
         if self.use_qdrant and self.qdrant_client:
             try:
                 from qdrant_client.models import PointStruct
+                import json as _json  # RT33800: For parsing _node_content
+                
                 search_result = self.qdrant_client.search(
                     collection_name=self.collection,
                     query_vector=query_embedding.tolist(),
@@ -633,18 +635,40 @@ class ScornSpine:  # RT9600: Renamed from MinimalSpine
                 )
                 results = []
                 for i, hit in enumerate(search_result):
+                    # RT33800: Handle LlamaIndex payload format from Qdrant Cloud
+                    # Payload has: filepath, _node_content (JSON with text field)
+                    payload = hit.payload or {}
+                    
+                    # Extract path - try multiple field names
+                    path = (payload.get('filepath') or 
+                            payload.get('path') or 
+                            payload.get('filename') or 
+                            'unknown')
+                    
+                    # Extract text - may be in _node_content JSON
+                    text = ''
+                    if '_node_content' in payload:
+                        try:
+                            node = _json.loads(payload['_node_content'])
+                            text = node.get('text', '')[:2000]
+                        except:
+                            text = str(payload.get('_node_content', ''))[:2000]
+                    else:
+                        text = payload.get('text', '')[:2000]
+                    
                     results.append({
-                        'path': hit.payload.get('path', 'unknown'),
-                        'text': hit.payload.get('text', '')[:2000],
+                        'path': path,
+                        'text': text,
                         'score': float(hit.score),
                         'rank': i + 1,
-                        'idx': hit.id
+                        'idx': hit.id,
+                        'category': payload.get('category', 'unknown')
                     })
                 return results
             except Exception as e:
                 print(f"[ScornSpine] Qdrant query failed: {e}")
                 return []
-        
+
         # Local FAISS fallback
         if len(self.docs) == 0:
             return []
