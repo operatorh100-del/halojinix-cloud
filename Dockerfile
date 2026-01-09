@@ -35,16 +35,18 @@ WORKDIR /app
 COPY requirements.txt .
 
 # Install dependencies in correct order:
-# 1. RunPod from PyPI (not on PyTorch index)
+# 1. Install numpy FIRST with version cap (RT33700: fixes version mismatch)
+RUN python3 -m pip install --no-cache-dir "numpy>=1.26.0,<2.0"
+
+# 2. RunPod from PyPI (not on PyTorch index)
 RUN python3 -m pip install --no-cache-dir runpod>=1.5.0
 
-# 2. PyTorch with CUDA wheels (separate index)
+# 3. PyTorch with CUDA wheels (separate index)
 RUN python3 -m pip install --no-cache-dir torch==2.2.0+cu121 \
     --index-url https://download.pytorch.org/whl/cu121
 
-# 3. All other ML dependencies from PyPI
+# 4. All other ML dependencies from PyPI (numpy already installed)
 RUN python3 -m pip install --no-cache-dir \
-    numpy>=1.26.0 \
     sentence-transformers>=2.7.0 \
     transformers>=4.38.0 \
     huggingface-hub>=0.21.0 \
