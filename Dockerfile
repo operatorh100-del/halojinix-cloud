@@ -99,3 +99,5 @@ EXPOSE 7782
 
 # RunPod handler entrypoint
 CMD ["python3", "-u", "runpod_handler.py"]
+
+# Build triggered: 2026-01-09 16:54:09
