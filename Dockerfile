@@ -92,12 +92,12 @@ RUN mkdir -p /app/scornspine /app/haloscorn/scornspine /app/haloscorn/latent_spa
     # Also symlink to haloscorn/scornspine for backward compat
     cp /app/scornspine/*.py /app/haloscorn/scornspine/
 
-# Pre-download embedding model (optional - will cold start on first use)
-# Uncomment once image builds successfully:
-# RUN python3 -c "from sentence_transformers import SentenceTransformer; \
-#     print('Downloading embedding model...'); \
-#     SentenceTransformer('intfloat/multilingual-e5-base'); \
-#     print('Model cached!')"
+# Pre-download embedding model (RT33700: reduces cold start from 30s to 5s)
+# Model is cached in image layer - workers start faster
+RUN python3 -c "from sentence_transformers import SentenceTransformer; \
+    print('Downloading embedding model...'); \
+    SentenceTransformer('intfloat/multilingual-e5-base'); \
+    print('Model cached!')"
 
 # Expose for local testing (RunPod doesn't need this)
 EXPOSE 7782
