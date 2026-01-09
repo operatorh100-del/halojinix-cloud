@@ -17,6 +17,10 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONIOENCODING=utf-8
 
+# Disable HF_TRANSFER (base image enables it but package not always installed)
+# RT33700: Fixes "hf_transfer package not available" error
+ENV HF_HUB_ENABLE_HF_TRANSFER=0
+
 # Cache directories (inside container)
 ENV HF_HOME=/runpod-volume/cache/huggingface
 ENV TRANSFORMERS_CACHE=/runpod-volume/cache/huggingface
