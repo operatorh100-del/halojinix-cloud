@@ -4,7 +4,7 @@
 # Build: RunPod auto-builds from GitHub
 # GPU: A100 80GB ($0.00076/s scale-to-zero)
 
-FROM runpod/pytorch:2.2.0-py3.10-cuda12.1.0-devel-ubuntu22.04
+FROM runpod/pytorch:2.2.0-py3.10-cuda12.1.1-devel-ubuntu22.04
 
 LABEL maintainer="Halojinix Triad"
 LABEL description="ScornSpine RAG + COCONUT Latent Reasoning for RunPod Serverless"
