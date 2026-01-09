@@ -626,13 +626,14 @@ class ScornSpine:  # RT9600: Renamed from MinimalSpine
         if self.use_qdrant and self.qdrant_client:
             import json as _json  # RT33800: For parsing _node_content
             
-            search_result = self.qdrant_client.search(
+            # RT33700: Use query_points (newer API) instead of search (deprecated)
+            search_result = self.qdrant_client.query_points(
                 collection_name=self.collection,
-                query_vector=query_embedding.tolist(),
+                query=query_embedding.tolist(),
                 limit=top_k
             )
             results = []
-            for i, hit in enumerate(search_result):
+            for i, hit in enumerate(search_result.points):
                 # RT33800: Handle LlamaIndex payload format from Qdrant Cloud
                 # Payload has: filepath, _node_content (JSON with text field)
                 payload = hit.payload or {}
