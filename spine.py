@@ -145,23 +145,49 @@ class ScornSpine:  # RT9600: Renamed from MinimalSpine
     """
     ScornSpine RAG engine. Local FAISS + GPU-accelerated embeddings.
     Clean, fast, reliable.
+    
+    RT31800: Now supports Qdrant Cloud backend for serverless deployment.
     """
 
     def __init__(
         self,
         model_name: str = "intfloat/multilingual-e5-base",  # RT12002: Upgrade from MiniLM (384-dim) to e5-base (768-dim)
-        index_path: Optional[Path] = None
+        index_path: Optional[Path] = None,
+        # RT31800: Qdrant Cloud support
+        qdrant_url: Optional[str] = None,
+        qdrant_api_key: Optional[str] = None,
+        collection: str = "halojinix-spine"
     ):
         self.model_name = model_name
-        self.index_path = index_path or Path("F:/primewave-engine/haloscorn/scornspine/index_minimal")
-        self.index_path.mkdir(parents=True, exist_ok=True)
+        self.index_path = index_path or Path("/runpod-volume/index" if qdrant_url else "F:/primewave-engine/haloscorn/scornspine/index_minimal")
+        self.collection = collection
+        
+        # RT31800: Qdrant Cloud backend
+        self.qdrant_client = None
+        self.use_qdrant = bool(qdrant_url and qdrant_api_key)
+        
+        if self.use_qdrant:
+            try:
+                from qdrant_client import QdrantClient
+                from qdrant_client.models import Distance, VectorParams
+                print(f"[ScornSpine] RT31800: Connecting to Qdrant Cloud: {qdrant_url[:50]}...")
+                self.qdrant_client = QdrantClient(url=qdrant_url, api_key=qdrant_api_key)
+                print(f"[ScornSpine] RT31800: Qdrant Cloud connected")
+            except Exception as e:
+                print(f"[ScornSpine] RT31800: Qdrant connection failed: {e}")
+                self.use_qdrant = False
+        
+        if not self.use_qdrant:
+            self.index_path.mkdir(parents=True, exist_ok=True)
 
         # Load embedding model
         print(f"Loading model: {model_name}")
         import os
         import torch
-        os.environ["HF_HUB_OFFLINE"] = "1"
-        os.environ["TRANSFORMERS_OFFLINE"] = "1"
+        # Only set offline mode if not in cloud (model is pre-downloaded in Dockerfile)
+        if not self.use_qdrant:
+            os.environ["HF_HUB_OFFLINE"] = "1"
+            os.environ["TRANSFORMERS_OFFLINE"] = "1"
 
         # RT20260104-GPU-FIX: Check SCORNSPINE_DEVICE env var for CPU mode
         # Set SCORNSPINE_DEVICE=cpu to force CPU-only operation
@@ -592,13 +618,36 @@ class ScornSpine:  # RT9600: Renamed from MinimalSpine
         Returns:
             List of documents with path, text, and score
         """
-        if len(self.docs) == 0:
-            return []
-
         # Embed query - single encode call, minimal allocation
         # RT22700: PyTorch/CUDA memory is managed internally - no cleanup needed
-        # After warmup (~50 calls), VRAM usage stabilizes automatically
         query_embedding = self.embedder.encode(question, convert_to_numpy=True)
+        
+        # RT31800: Use Qdrant Cloud if configured
+        if self.use_qdrant and self.qdrant_client:
+            try:
+                from qdrant_client.models import PointStruct
+                search_result = self.qdrant_client.search(
+                    collection_name=self.collection,
+                    query_vector=query_embedding.tolist(),
+                    limit=top_k
+                )
+                results = []
+                for i, hit in enumerate(search_result):
+                    results.append({
+                        'path': hit.payload.get('path', 'unknown'),
+                        'text': hit.payload.get('text', '')[:2000],
+                        'score': float(hit.score),
+                        'rank': i + 1,
+                        'idx': hit.id
+                    })
+                return results
+            except Exception as e:
+                print(f"[ScornSpine] Qdrant query failed: {e}")
+                return []
+        
+        # Local FAISS fallback
+        if len(self.docs) == 0:
+            return []
 
         # Search
         if FAISS_AVAILABLE:
