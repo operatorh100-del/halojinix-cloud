@@ -84,7 +84,7 @@ RUN mkdir -p /app/scornspine /app/haloscorn/scornspine /app/haloscorn/latent_spa
     cp /app/scornspine/*.py /app/haloscorn/scornspine/
 
 # Pre-download embedding model (avoid cold start delay)
-RUN python -c "from sentence_transformers import SentenceTransformer; \
+RUN python3 -c "from sentence_transformers import SentenceTransformer; \
     print('Downloading embedding model...'); \
     SentenceTransformer('intfloat/multilingual-e5-base'); \
     print('Model cached!')"
@@ -93,4 +93,4 @@ RUN python -c "from sentence_transformers import SentenceTransformer; \
 EXPOSE 7782
 
 # RunPod handler entrypoint
-CMD ["python", "-u", "runpod_handler.py"]
+CMD ["python3", "-u", "runpod_handler.py"]
