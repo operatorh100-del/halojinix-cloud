@@ -3,8 +3,10 @@
 #
 # Build: RunPod auto-builds from GitHub
 # GPU: A100 80GB ($0.00076/s scale-to-zero)
+#
+# Using slim base to reduce image size
 
-FROM runpod/pytorch:2.2.0-py3.10-cuda12.1.1-devel-ubuntu22.04
+FROM runpod/base:0.6.2-cuda12.1.0
 
 LABEL maintainer="Halojinix Triad"
 LABEL description="ScornSpine RAG + COCONUT Latent Reasoning for RunPod Serverless"
@@ -29,14 +31,15 @@ WORKDIR /app
 COPY requirements.txt .
 
 # Install ML dependencies
+# Install torch with CUDA wheels (smaller than full PyTorch)
 RUN pip install --no-cache-dir \
     runpod>=1.5.0 \
-    torch==2.2.0 \
+    torch==2.2.0+cu121 --index-url https://download.pytorch.org/whl/cu121 && \
+    pip install --no-cache-dir \
     numpy>=1.26.0 \
     sentence-transformers>=2.7.0 \
     transformers>=4.38.0 \
     huggingface-hub>=0.21.0 \
-    faiss-gpu>=1.7.2 \
     fastapi>=0.109.0 \
     uvicorn>=0.27.0 \
     pydantic>=2.6.0 \
