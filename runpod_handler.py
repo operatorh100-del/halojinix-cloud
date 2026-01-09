@@ -37,8 +37,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger("scornspine")
 
-# Add haloscorn to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Add app root to path for imports
+sys.path.insert(0, '/app')
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # Initialize once per worker (not per request)
 _spine = None
@@ -58,8 +59,11 @@ def initialize():
     logger.info("Initializing ScornSpine worker...")
     start = time.time()
     
-    # Import here to avoid loading models before worker is ready
-    from scornspine.spine import ScornSpine
+    # Import spine - try multiple paths for compatibility
+    try:
+        from scornspine.spine import ScornSpine
+    except ImportError:
+        from spine import ScornSpine
     
     # Configure for Qdrant Cloud (secrets injected via RunPod environment)
     qdrant_url = os.getenv('QDRANT_CLOUD_URL') or os.getenv('QDRANT_URL')
@@ -122,7 +126,10 @@ def handler(job):
             
         elif mode == "hybrid":
             # Hybrid search (vector + BM25 if available)
-            from scornspine.bm25_index import BM25Index, reciprocal_rank_fusion
+            try:
+                from scornspine.bm25_index import BM25Index, reciprocal_rank_fusion
+            except ImportError:
+                from bm25_index import BM25Index, reciprocal_rank_fusion
             
             vector_results = _spine.query(query, top_k=top_k * 2)
             
@@ -152,7 +159,13 @@ def handler(job):
             
         elif mode == "coconut":
             # COCONUT latent reasoning (iterative refinement)
-            from haloscorn.latent_space.coconut import TextCoconutReasoner
+            try:
+                from haloscorn.latent_space.coconut import TextCoconutReasoner
+            except ImportError:
+                try:
+                    from latent_space.coconut import TextCoconutReasoner
+                except ImportError:
+                    return {"error": "COCONUT module not available", "success": False}
             
             max_steps = min(int(job_input.get("max_steps", 3)), 10)
             

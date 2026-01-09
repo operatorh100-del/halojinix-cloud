@@ -18,16 +18,33 @@ import fnmatch  # RT12070: For .ragignore pattern matching
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Set
 
-# RT20260105: Set cache directories to F: drive to avoid H: drive errors
-os.environ["HF_HOME"] = "F:/primewave-engine/cache/huggingface"
-os.environ["TRANSFORMERS_CACHE"] = "F:/primewave-engine/cache/huggingface"
-os.environ["SENTENCE_TRANSFORMERS_HOME"] = "F:/primewave-engine/cache/sentence_transformers"
+# RT20260105: Set cache directories (cloud-compatible)
+if not os.environ.get("HF_HOME"):
+    os.environ["HF_HOME"] = os.environ.get("HF_HOME", "/runpod-volume/cache/huggingface")
+if not os.environ.get("TRANSFORMERS_CACHE"):
+    os.environ["TRANSFORMERS_CACHE"] = os.environ.get("TRANSFORMERS_CACHE", "/runpod-volume/cache/huggingface")
+if not os.environ.get("SENTENCE_TRANSFORMERS_HOME"):
+    os.environ["SENTENCE_TRANSFORMERS_HOME"] = os.environ.get("SENTENCE_TRANSFORMERS_HOME", "/runpod-volume/cache/sentence_transformers")
 
 # Core dependencies only
 import numpy as np
 import torch  # RT22700: For GPU cleanup after batch operations
 
-from haloscorn.scornspine.embeddings_cache import init_cache, get_cached_embedding, cache_embeddings_batch
+# Try multiple import paths for embeddings_cache
+try:
+    from haloscorn.scornspine.embeddings_cache import init_cache, get_cached_embedding, cache_embeddings_batch
+except ImportError:
+    try:
+        from scornspine.embeddings_cache import init_cache, get_cached_embedding, cache_embeddings_batch
+    except ImportError:
+        try:
+            from embeddings_cache import init_cache, get_cached_embedding, cache_embeddings_batch
+        except ImportError:
+            # Fallback: define stubs if cache not available
+            def init_cache(*args, **kwargs): pass
+            def get_cached_embedding(*args, **kwargs): return None
+            def cache_embeddings_batch(*args, **kwargs): pass
+            print("WARNING: embeddings_cache not available, caching disabled")
 
 try:
     import faiss
